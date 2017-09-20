@@ -406,24 +406,24 @@ class Coverage(PyLayers):
         ng = self.ng
         nf = self.nf
         
-        for iap in self.dap:
-            # select only one access point
-            u = na*np.arange(0,ng,1).astype('int')+iap
-            if self.dap[iap]['on']:
-                pt = self.pa[:,u]
-                pr = self.pg[:,u]
-                azoffset = self.dap[iap]['phideg']*np.pi/180.
-                self.dap[iap].A.eval(fGHz=self.fGHz,pt=pt,pr=pr,azoffset=azoffset)
+        # for iap in self.dap:
+        #     # select only one access point
+        #     u = na*np.arange(0,ng,1).astype('int')+iap
+        #     if self.dap[iap]['on']:
+        #         pt = self.pa[:,u]
+        #         pr = self.pg[:,u]
+        #         azoffset = self.dap[iap]['phideg']*np.pi/180.
+        #         self.dap[iap].A.eval(fGHz=self.fGHz,pt=pt,pr=pr,azoffset=azoffset)
                 
-                gain = (self.dap[iap].A.G).T
-                #pdb.set_trace()
-                # to handle omnidirectional antenna (nf,1,1)
-                if gain.shape[1]==1:
-                    gain = np.repeat(gain,ng,axis=1)
-                try:
-                    tgain = np.dstack((tgain,gain[:,:,None]))
-                except:
-                    tgain = gain[:,:,None]
+        #         gain = (self.dap[iap].A.G).T
+        #         #pdb.set_trace()
+        #         # to handle omnidirectional antenna (nf,1,1)
+        #         if gain.shape[1]==1:
+        #             gain = np.repeat(gain,ng,axis=1)
+        #         try:
+        #             tgain = np.dstack((tgain,gain[:,:,None]))
+        #         except:
+        #             tgain = gain[:,:,None]
         
         #Lwo,Lwp,Edo,Edp = loss.Losst(self.L,self.fGHz,self.pa,self.pg,dB=False)
         Lwo,Lwp,Edo,Edp = loss.Losst(self.L,self.fGHz,self.pa,self.pg,dB=False)
@@ -440,8 +440,8 @@ class Coverage(PyLayers):
         # f x g x a
 
         # CmW : Received Power coverage in mW
-        self.CmWo = 10**(self.ptdbm[np.newaxis,...]/10.)*self.Lwo*self.freespace*tgain
-        self.CmWp = 10**(self.ptdbm[np.newaxis,...]/10.)*self.Lwp*self.freespace*tgain
+        self.CmWo = 10**(self.ptdbm[np.newaxis,...]/10.)*self.Lwo*self.freespace#*tgain
+        self.CmWp = 10**(self.ptdbm[np.newaxis,...]/10.)*self.Lwp*self.freespace#*tgain
 
 
         if snr:
@@ -881,7 +881,7 @@ class Coverage(PyLayers):
                      'best':True
                    }
 
-        title = self.dap[1].s.name+ ' : '
+        title = self.dap[0].s.name+ ' : '
 
         for k in defaults:
             if k not in kwargs:
@@ -1003,6 +1003,22 @@ class Coverage(PyLayers):
                 U = V.reshape((self.nx,self.ny)).T
             else:
                 U = V
+
+             # remove the NaNs using linear interpolation
+            nanMap = np.isnan(U)
+            if np.any(nanMap):
+                warnings.warn("There is some NaNs in the map which are interpolated for display!")
+                while np.any(nanMap):
+                    for x in range(np.shape(nanMap)[0]):
+                        for y in range(np.shape(nanMap)[1]):
+                            if nanMap[x,y] == True:
+                                neighbours = []
+                                if x-1 > -1 and nanMap[x-1,y]!= True: neighbours.append(U[x-1,y])
+                                if x+1 < np.shape(nanMap)[0] and nanMap[x+1,y]!= True: neighbours.append(U[x+1,y])
+                                if y-1 > -1 and nanMap[x,y-1]!= True: neighbours.append(U[x,y-1])
+                                if y+1 < np.shape(nanMap)[0] and nanMap[x,y+1]!= True: neighbours.append(U[x,y+1])
+                                U[x,y] = np.mean(neighbours)
+                    nanMap = np.isnan(U)
 
             if dB:
                 U = 10*np.log10(U)
